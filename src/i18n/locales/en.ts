@@ -1,0 +1,85 @@
+import type es from './es';
+
+const en: typeof es = {
+  common: {
+    continue: 'Continue',
+    back: 'Back',
+    save: 'Save',
+    cancel: 'Cancel',
+    loading: 'Loading...',
+    error: 'Something went wrong',
+  },
+  welcome: {
+    title: 'AGP Fincas',
+    subtitle: 'Property management and owners’ meetings',
+    chooseLanguage: 'Choose your language',
+    continue: 'Continue',
+  },
+  portal: {
+    title: 'How do you want to sign in?',
+    subtitle: 'Choose your profile to continue',
+    admin: 'Management',
+    adminDescription: 'I am a property manager or a management staff member',
+    owner: 'Owner',
+    ownerDescription: 'I own a property in a community',
+  },
+  login: {
+    title: 'AGP Fincas',
+    subtitle: 'Property management and owners’ meetings',
+    email: 'Email',
+    password: 'Password',
+    submit: 'Sign in',
+    error: 'We couldn’t sign you in. Check your details and try again.',
+    missingFields: 'Enter your email and password.',
+    adminHint:
+      'Your manager sets up your account with your email. If you don’t have access yet, contact your office.',
+    ownerHint: 'First time here?',
+    ownerRegisterLink: 'Sign up with your community code',
+  },
+  registro: {
+    title: 'Sign up with your code',
+    subtitle: 'Your manager has given you a code to access your community.',
+    code: 'Access code',
+    name: 'First name',
+    surname: 'Last name',
+    email: 'Email',
+    password: 'Password',
+    submit: 'Sign up',
+    missingFields: 'Fill in all the fields.',
+    invalidCode: 'This code is invalid or has already been used.',
+    genericError: 'We couldn’t complete your registration.',
+    confirmEmail:
+      'We’ve sent you a confirmation email. Confirm it and sign in again to link your code.',
+  },
+  tabs: {
+    home: 'Home',
+    meetings: 'Meetings',
+    communities: 'Communities',
+    issues: 'Issues',
+    team: 'Team',
+    profile: 'Profile',
+  },
+  profile: {
+    title: 'Profile',
+    signOut: 'Sign out',
+    roleSuperAdmin: 'Administrator',
+    roleEmployee: 'Employee',
+    roleOwner: 'Owner',
+    linkCode: 'Link access code',
+    linkCodePlaceholder: 'Enter your code',
+    linkCodeSubmit: 'Link',
+    linkCodeSuccess: 'Code linked successfully.',
+    language: 'Language',
+  },
+  team: {
+    title: 'Team',
+    newAccessCode: 'Generate a code for an owner',
+    employees: 'Employees',
+    permissions: 'Permissions',
+    view: 'View',
+    edit: 'Edit',
+    none: 'No access',
+  },
+};
+
+export default en;

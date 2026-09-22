@@ -39,7 +39,8 @@ function calcularTally(votos: Voto[], viviendasPorId: Record<string, Vivienda>):
 export default function PuntoVotacion() {
   const { id, puntoId } = useLocalSearchParams<{ id: string; puntoId: string }>();
   const theme = useTheme();
-  const { profile, isAdmin } = useAuth();
+  const { profile, isOwner, can } = useAuth();
+  const puedeEditar = can('juntas', 'editar');
 
   const [punto, setPunto] = useState<PuntoOrdenDia | null>(null);
   const [junta, setJunta] = useState<Junta | null>(null);
@@ -157,7 +158,7 @@ export default function PuntoVotacion() {
         />
       </View>
 
-      {punto.estado === 'en_votacion' && !isAdmin ? (
+      {punto.estado === 'en_votacion' && isOwner ? (
         miVivienda ? (
           !miVivienda.derecho_voto ? (
             <Card>
@@ -196,7 +197,7 @@ export default function PuntoVotacion() {
         <Badge label={punto.resultado.aprobado ? 'Punto aprobado' : 'Punto no aprobado'} tone={punto.resultado.aprobado ? 'success' : 'danger'} />
       ) : null}
 
-      {isAdmin && punto.estado === 'en_votacion' ? (
+      {puedeEditar && punto.estado === 'en_votacion' ? (
         <Button label="Cerrar votación y pasar a acta" onPress={cerrarVotacion} disabled={busy} />
       ) : null}
     </Screen>

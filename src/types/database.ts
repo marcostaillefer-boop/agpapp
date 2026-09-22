@@ -1,4 +1,8 @@
-export type Rol = 'admin' | 'propietario';
+export type Rol = 'super_admin' | 'empleado' | 'propietario';
+
+export type Modulo = 'comunidades' | 'incidencias' | 'cuotas' | 'documentos' | 'juntas';
+export type NivelPermiso = 'ninguno' | 'ver' | 'editar';
+export type Permisos = Partial<Record<Modulo, NivelPermiso>>;
 
 export type EstadoIncidencia = 'abierta' | 'en_proceso' | 'cerrada';
 export type EstadoCuota = 'pendiente' | 'pagada' | 'vencida';
@@ -29,12 +33,29 @@ export type Profile = {
   created_at: string;
 };
 
+export type Administracion = {
+  id: string;
+  nombre: string;
+  propietario_id: string;
+  enlace_documentos_base: string | null;
+  created_at: string;
+};
+
+export type Empleado = {
+  id: string;
+  administracion_id: string;
+  profile_id: string;
+  permisos: Permisos;
+  activo: boolean;
+  created_at: string;
+};
+
 export type Comunidad = {
   id: string;
   nombre: string;
   direccion: string;
   cif: string | null;
-  administrador_id: string;
+  administracion_id: string;
   created_at: string;
 };
 
@@ -130,6 +151,19 @@ export type Voto = {
   created_at: string;
 };
 
+export type CodigoAcceso = {
+  id: string;
+  codigo: string;
+  vivienda_id: string | null;
+  administracion_id: string | null;
+  permisos: Permisos | null;
+  usado: boolean;
+  usado_por: string | null;
+  creado_por: string;
+  expira_en: string | null;
+  created_at: string;
+};
+
 type TableDef<Row> = {
   Row: Row;
   Insert: Partial<Row>;
@@ -141,6 +175,8 @@ export type Database = {
   public: {
     Tables: {
       profiles: TableDef<Profile>;
+      administraciones: TableDef<Administracion>;
+      empleados: TableDef<Empleado>;
       comunidades: TableDef<Comunidad>;
       viviendas: TableDef<Vivienda>;
       incidencias: TableDef<Incidencia>;
@@ -150,11 +186,13 @@ export type Database = {
       puntos_orden_dia: TableDef<PuntoOrdenDia>;
       asistentes: TableDef<Asistente>;
       votos: TableDef<Voto>;
+      codigos_acceso: TableDef<CodigoAcceso>;
     };
     Views: Record<string, never>;
     Functions: {
       abrir_votacion: { Args: { punto: string }; Returns: undefined };
       cerrar_votacion: { Args: { punto: string }; Returns: undefined };
+      redimir_codigo_acceso: { Args: { codigo_input: string }; Returns: undefined };
     };
   };
 };

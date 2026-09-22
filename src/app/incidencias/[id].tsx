@@ -20,7 +20,8 @@ const estados: { value: EstadoIncidencia; label: string }[] = [
 
 export default function DetalleIncidencia() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { isAdmin } = useAuth();
+  const { can } = useAuth();
+  const puedeEditar = can('incidencias', 'editar');
   const [incidencia, setIncidencia] = useState<Incidencia | null>(null);
   const [updating, setUpdating] = useState(false);
 
@@ -60,7 +61,7 @@ export default function DetalleIncidencia() {
       </View>
       <AppText>{incidencia.descripcion}</AppText>
 
-      {isAdmin ? (
+      {puedeEditar ? (
         <View style={{ gap: Spacing.sm }}>
           <AppText variant="subtitle">Cambiar estado</AppText>
           <View style={{ flexDirection: 'row', gap: Spacing.sm }}>

@@ -1,0 +1,85 @@
+import type es from './es';
+
+const fr: typeof es = {
+  common: {
+    continue: 'Continuer',
+    back: 'Retour',
+    save: 'Enregistrer',
+    cancel: 'Annuler',
+    loading: 'Chargement...',
+    error: 'Une erreur est survenue',
+  },
+  welcome: {
+    title: 'AGP Fincas',
+    subtitle: 'Gestion de copropriétés et assemblées de propriétaires',
+    chooseLanguage: 'Choisissez votre langue',
+    continue: 'Continuer',
+  },
+  portal: {
+    title: 'Comment souhaitez-vous vous connecter ?',
+    subtitle: 'Choisissez votre profil pour continuer',
+    admin: 'Gestion',
+    adminDescription: 'Je suis administrateur de biens ou employé de la gestion',
+    owner: 'Propriétaire',
+    ownerDescription: 'Je possède un bien dans une copropriété',
+  },
+  login: {
+    title: 'AGP Fincas',
+    subtitle: 'Gestion de copropriétés et assemblées de propriétaires',
+    email: 'Email',
+    password: 'Mot de passe',
+    submit: 'Se connecter',
+    error: 'Connexion impossible. Vérifiez vos informations et réessayez.',
+    missingFields: 'Saisissez votre email et votre mot de passe.',
+    adminHint:
+      'Votre gestionnaire crée votre compte avec votre email. Si vous n’avez pas encore accès, contactez votre cabinet.',
+    ownerHint: 'Première visite ?',
+    ownerRegisterLink: 'Inscrivez-vous avec le code de votre copropriété',
+  },
+  registro: {
+    title: 'Inscrivez-vous avec votre code',
+    subtitle: 'Votre gestionnaire vous a donné un code pour accéder à votre copropriété.',
+    code: 'Code d’accès',
+    name: 'Prénom',
+    surname: 'Nom',
+    email: 'Email',
+    password: 'Mot de passe',
+    submit: 'S’inscrire',
+    missingFields: 'Remplissez tous les champs.',
+    invalidCode: 'Ce code est invalide ou a déjà été utilisé.',
+    genericError: 'Impossible de terminer l’inscription.',
+    confirmEmail:
+      'Nous vous avons envoyé un email de confirmation. Confirmez-le puis reconnectez-vous pour lier votre code.',
+  },
+  tabs: {
+    home: 'Accueil',
+    meetings: 'Assemblées',
+    communities: 'Copropriétés',
+    issues: 'Incidents',
+    team: 'Équipe',
+    profile: 'Profil',
+  },
+  profile: {
+    title: 'Profil',
+    signOut: 'Se déconnecter',
+    roleSuperAdmin: 'Administrateur',
+    roleEmployee: 'Employé',
+    roleOwner: 'Propriétaire',
+    linkCode: 'Lier un code d’accès',
+    linkCodePlaceholder: 'Saisissez votre code',
+    linkCodeSubmit: 'Lier',
+    linkCodeSuccess: 'Code lié avec succès.',
+    language: 'Langue',
+  },
+  team: {
+    title: 'Équipe',
+    newAccessCode: 'Générer un code pour un propriétaire',
+    employees: 'Employés',
+    permissions: 'Permissions',
+    view: 'Voir',
+    edit: 'Modifier',
+    none: 'Aucun accès',
+  },
+};
+
+export default fr;

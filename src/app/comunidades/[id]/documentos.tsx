@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
+import * as WebBrowser from 'expo-web-browser';
 import { View } from 'react-native';
 
 import { Badge } from '@/components/badge';
@@ -9,6 +10,7 @@ import { Card } from '@/components/card';
 import { EmptyState } from '@/components/empty-state';
 import { Screen } from '@/components/screen';
 import { AppText } from '@/components/text';
+import { TextField } from '@/components/text-field';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { supabase } from '@/lib/supabase';
@@ -24,9 +26,13 @@ const tipoLabel: Record<Documento['tipo'], string> = {
 
 export default function DocumentosComunidad() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { isAdmin, profile } = useAuth();
+  const { can, profile } = useAuth();
+  const puedeEditar = can('documentos', 'editar');
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [subiendo, setSubiendo] = useState(false);
+  const [nombreEnlace, setNombreEnlace] = useState('');
+  const [enlace, setEnlace] = useState('');
+  const [guardandoEnlace, setGuardandoEnlace] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await supabase
@@ -76,12 +82,44 @@ export default function DocumentosComunidad() {
     }
   };
 
+  const anadirEnlace = async () => {
+    if (!nombreEnlace.trim() || !enlace.trim() || !profile) return;
+    setGuardandoEnlace(true);
+    await supabase.from('documentos').insert({
+      comunidad_id: id,
+      nombre: nombreEnlace.trim(),
+      tipo: 'otro',
+      url: enlace.trim(),
+      subido_por: profile.id,
+    });
+    setNombreEnlace('');
+    setEnlace('');
+    setGuardandoEnlace(false);
+    await load();
+  };
+
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: true, title: 'Documentos' }} />
 
-      {isAdmin ? (
-        <Button label="Subir documento" onPress={subirDocumento} loading={subiendo} variant="secondary" />
+      {puedeEditar ? (
+        <Card>
+          <AppText variant="subtitle">Subir un archivo</AppText>
+          <Button label="Elegir archivo" onPress={subirDocumento} loading={subiendo} variant="secondary" />
+
+          <AppText variant="subtitle" style={{ marginTop: Spacing.sm }}>
+            O enlazar un documento externo (SharePoint, Drive...)
+          </AppText>
+          <TextField label="Nombre" value={nombreEnlace} onChangeText={setNombreEnlace} placeholder="Acta 2026" />
+          <TextField
+            label="Enlace"
+            value={enlace}
+            onChangeText={setEnlace}
+            placeholder="https://..."
+            autoCapitalize="none"
+          />
+          <Button label="Añadir enlace" onPress={anadirEnlace} loading={guardandoEnlace} variant="secondary" />
+        </Card>
       ) : null}
 
       {documentos.length === 0 ? (
@@ -89,7 +127,7 @@ export default function DocumentosComunidad() {
       ) : (
         <View style={{ gap: Spacing.sm }}>
           {documentos.map((doc) => (
-            <Card key={doc.id}>
+            <Card key={doc.id} onPress={() => WebBrowser.openBrowserAsync(doc.url)}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 <AppText variant="subtitle">{doc.nombre}</AppText>
                 <Badge label={tipoLabel[doc.tipo]} tone="primary" />

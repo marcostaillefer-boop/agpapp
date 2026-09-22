@@ -27,7 +27,8 @@ const estadoTone: Record<Junta['estado'], 'primary' | 'success' | 'neutral'> = {
 
 export default function Juntas() {
   const router = useRouter();
-  const { isAdmin } = useAuth();
+  const { can } = useAuth();
+  const puedeEditar = can('juntas', 'editar');
   const [juntas, setJuntas] = useState<Junta[]>([]);
 
   const load = useCallback(async () => {
@@ -44,7 +45,7 @@ export default function Juntas() {
   return (
     <Screen>
       <AppText variant="title">Juntas</AppText>
-      {isAdmin ? <Button label="Convocar nueva junta" onPress={() => router.push('/juntas/nueva')} /> : null}
+      {puedeEditar ? <Button label="Convocar nueva junta" onPress={() => router.push('/juntas/nueva')} /> : null}
 
       {juntas.length === 0 ? (
         <EmptyState title="No hay juntas todavía" />

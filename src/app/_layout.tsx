@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
 import { AuthProvider } from '@/context/auth-context';
+import '@/i18n';
 
 export default function RootLayout() {
   return (

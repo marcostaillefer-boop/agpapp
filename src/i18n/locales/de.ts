@@ -1,0 +1,85 @@
+import type es from './es';
+
+const de: typeof es = {
+  common: {
+    continue: 'Weiter',
+    back: 'Zurück',
+    save: 'Speichern',
+    cancel: 'Abbrechen',
+    loading: 'Wird geladen...',
+    error: 'Es ist ein Fehler aufgetreten',
+  },
+  welcome: {
+    title: 'AGP Fincas',
+    subtitle: 'Verwaltung von Eigentümergemeinschaften und Versammlungen',
+    chooseLanguage: 'Wähle deine Sprache',
+    continue: 'Weiter',
+  },
+  portal: {
+    title: 'Wie möchtest du dich anmelden?',
+    subtitle: 'Wähle dein Profil, um fortzufahren',
+    admin: 'Verwaltung',
+    adminDescription: 'Ich bin Hausverwalter oder Mitarbeiter der Verwaltung',
+    owner: 'Eigentümer',
+    ownerDescription: 'Ich besitze eine Wohnung in einer Gemeinschaft',
+  },
+  login: {
+    title: 'AGP Fincas',
+    subtitle: 'Verwaltung von Eigentümergemeinschaften und Versammlungen',
+    email: 'E-Mail',
+    password: 'Passwort',
+    submit: 'Anmelden',
+    error: 'Anmeldung nicht möglich. Bitte überprüfe deine Angaben.',
+    missingFields: 'Gib deine E-Mail und dein Passwort ein.',
+    adminHint:
+      'Dein Verwalter richtet dein Konto mit deiner E-Mail ein. Falls du noch keinen Zugang hast, wende dich an dein Büro.',
+    ownerHint: 'Zum ersten Mal hier?',
+    ownerRegisterLink: 'Mit dem Code deiner Gemeinschaft registrieren',
+  },
+  registro: {
+    title: 'Registriere dich mit deinem Code',
+    subtitle: 'Dein Verwalter hat dir einen Code für den Zugang zu deiner Gemeinschaft gegeben.',
+    code: 'Zugangscode',
+    name: 'Vorname',
+    surname: 'Nachname',
+    email: 'E-Mail',
+    password: 'Passwort',
+    submit: 'Registrieren',
+    missingFields: 'Fülle alle Felder aus.',
+    invalidCode: 'Dieser Code ist ungültig oder wurde bereits verwendet.',
+    genericError: 'Die Registrierung konnte nicht abgeschlossen werden.',
+    confirmEmail:
+      'Wir haben dir eine Bestätigungs-E-Mail gesendet. Bestätige sie und melde dich erneut an, um deinen Code zu verknüpfen.',
+  },
+  tabs: {
+    home: 'Start',
+    meetings: 'Versammlungen',
+    communities: 'Gemeinschaften',
+    issues: 'Meldungen',
+    team: 'Team',
+    profile: 'Profil',
+  },
+  profile: {
+    title: 'Profil',
+    signOut: 'Abmelden',
+    roleSuperAdmin: 'Verwalter',
+    roleEmployee: 'Mitarbeiter',
+    roleOwner: 'Eigentümer',
+    linkCode: 'Zugangscode verknüpfen',
+    linkCodePlaceholder: 'Code eingeben',
+    linkCodeSubmit: 'Verknüpfen',
+    linkCodeSuccess: 'Code erfolgreich verknüpft.',
+    language: 'Sprache',
+  },
+  team: {
+    title: 'Team',
+    newAccessCode: 'Code für einen Eigentümer erstellen',
+    employees: 'Mitarbeiter',
+    permissions: 'Berechtigungen',
+    view: 'Ansehen',
+    edit: 'Bearbeiten',
+    none: 'Kein Zugriff',
+  },
+};
+
+export default de;

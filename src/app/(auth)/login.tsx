@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { AppText } from '@/components/text';
@@ -10,6 +12,10 @@ import { useTheme } from '@/hooks/use-theme';
 
 export default function Login() {
   const theme = useTheme();
+  const router = useRouter();
+  const { t } = useTranslation();
+  const { perfil } = useLocalSearchParams<{ perfil?: string }>();
+  const isOwnerEntry = perfil === 'propietario';
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,7 +24,7 @@ export default function Login() {
 
   const handleSubmit = async () => {
     if (!email || !password) {
-      setError('Introduce tu email y tu contraseña.');
+      setError(t('login.missingFields'));
       return;
     }
     setError(null);
@@ -26,7 +32,7 @@ export default function Login() {
     const { error: signInError } = await signIn(email.trim(), password);
     setLoading(false);
     if (signInError) {
-      setError('No hemos podido iniciar sesión. Revisa tus datos e inténtalo de nuevo.');
+      setError(t('login.error'));
     }
   };
 
@@ -37,13 +43,13 @@ export default function Login() {
     >
       <View style={styles.content}>
         <View style={styles.header}>
-          <AppText variant="title">AGP Fincas</AppText>
-          <AppText secondary>Gestión de comunidades y juntas de propietarios</AppText>
+          <AppText variant="title">{t('login.title')}</AppText>
+          <AppText secondary>{t('login.subtitle')}</AppText>
         </View>
 
         <View style={styles.form}>
           <TextField
-            label="Email"
+            label={t('login.email')}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -51,20 +57,32 @@ export default function Login() {
             placeholder="tu@email.com"
           />
           <TextField
-            label="Contraseña"
+            label={t('login.password')}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             placeholder="••••••••"
           />
           {error ? <AppText color={theme.danger}>{error}</AppText> : null}
-          <Button label="Entrar" onPress={handleSubmit} loading={loading} />
+          <Button label={t('login.submit')} onPress={handleSubmit} loading={loading} />
         </View>
 
-        <AppText variant="caption" secondary style={{ textAlign: 'center' }}>
-          Tu administrador de fincas te da de alta con tu email. Si no tienes acceso todavía,
-          contacta con tu comunidad.
-        </AppText>
+        {isOwnerEntry ? (
+          <View style={{ gap: Spacing.xs, alignItems: 'center' }}>
+            <AppText variant="caption" secondary>
+              {t('login.ownerHint')}
+            </AppText>
+            <Pressable onPress={() => router.push('/(auth)/registro-codigo')}>
+              <AppText variant="caption" color={theme.primary}>
+                {t('login.ownerRegisterLink')}
+              </AppText>
+            </Pressable>
+          </View>
+        ) : (
+          <AppText variant="caption" secondary style={{ textAlign: 'center' }}>
+            {t('login.adminHint')}
+          </AppText>
+        )}
       </View>
     </KeyboardAvoidingView>
   );

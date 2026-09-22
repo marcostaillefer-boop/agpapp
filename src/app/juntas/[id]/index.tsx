@@ -29,7 +29,8 @@ const puntoEstadoTone: Record<EstadoPunto, 'neutral' | 'success' | 'warning'> = 
 export default function DetalleJunta() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { profile, isAdmin } = useAuth();
+  const { profile, isOwner, can } = useAuth();
+  const puedeEditar = can('juntas', 'editar');
 
   const [junta, setJunta] = useState<Junta | null>(null);
   const [puntos, setPuntos] = useState<PuntoOrdenDia[]>([]);
@@ -140,7 +141,7 @@ export default function DetalleJunta() {
         ) : null}
       </View>
 
-      {!isAdmin && miVivienda && !miAsistencia && junta.estado !== 'finalizada' ? (
+      {isOwner && miVivienda && !miAsistencia && junta.estado !== 'finalizada' ? (
         <Card>
           <AppText variant="subtitle">Registra tu asistencia</AppText>
           <AppText secondary>
@@ -153,7 +154,7 @@ export default function DetalleJunta() {
         </Card>
       ) : null}
 
-      {!isAdmin && miAsistencia ? (
+      {isOwner && miAsistencia ? (
         <Card>
           <AppText secondary>
             Asistencia registrada como {miAsistencia.modalidad === 'presencial' ? 'presencial' : 'online'}.
@@ -161,7 +162,7 @@ export default function DetalleJunta() {
         </Card>
       ) : null}
 
-      {isAdmin ? (
+      {puedeEditar ? (
         <Card>
           <AppText variant="subtitle">Panel de la junta</AppText>
           <AppText secondary>{asistentes.length} vivienda(s) registrada(s) como asistentes.</AppText>
@@ -201,7 +202,7 @@ export default function DetalleJunta() {
                 {punto.resultado.aprobado ? 'Aprobado' : 'No aprobado'} · A favor {punto.resultado.coeficiente_a_favor.toFixed(1)}%
               </AppText>
             ) : null}
-            {isAdmin && punto.requiere_votacion && punto.estado === 'pendiente' && junta.estado === 'en_curso' ? (
+            {puedeEditar && punto.requiere_votacion && punto.estado === 'pendiente' && junta.estado === 'en_curso' ? (
               <Button label="Abrir votación de este punto" onPress={() => abrirVotacion(punto.id)} disabled={busy} />
             ) : null}
           </Card>
