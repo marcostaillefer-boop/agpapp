@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -25,9 +25,11 @@ const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
 export default function Perfil() {
   const { t, i18n } = useTranslation();
   const theme = useTheme();
-  const { profile, isSuperAdmin, isEmpleado, isOwner, signOut, refreshProfile } = useAuth();
+  const router = useRouter();
+  const { profile, isSuperAdmin, isEmpleado, isOwner, isAdmin, signOut, refreshProfile } = useAuth();
 
   const [tieneVivienda, setTieneVivienda] = useState(true);
+  const [esPresidente, setEsPresidente] = useState(false);
   const [codigo, setCodigo] = useState('');
   const [linkError, setLinkError] = useState<string | null>(null);
   const [linkOk, setLinkOk] = useState(false);
@@ -35,13 +37,22 @@ export default function Perfil() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!isOwner || !profile) return;
-      supabase
-        .from('viviendas')
-        .select('id')
-        .eq('propietario_id', profile.id)
-        .maybeSingle()
-        .then(({ data }) => setTieneVivienda(!!data));
+      if (!profile) return;
+      if (isOwner) {
+        supabase
+          .from('viviendas')
+          .select('id')
+          .eq('propietario_id', profile.id)
+          .maybeSingle()
+          .then(({ data }) => setTieneVivienda(!!data));
+        supabase
+          .from('viviendas')
+          .select('id')
+          .eq('propietario_id', profile.id)
+          .eq('cargo', 'presidente')
+          .maybeSingle()
+          .then(({ data }) => setEsPresidente(!!data));
+      }
     }, [isOwner, profile])
   );
 
@@ -110,6 +121,11 @@ export default function Perfil() {
           ))}
         </View>
       </Card>
+
+      {isAdmin ? <Button label="Fichar mi jornada" variant="secondary" onPress={() => router.push('/fichaje')} /> : null}
+      {isSuperAdmin || esPresidente ? (
+        <Button label="Solicitudes de ausencia" variant="secondary" onPress={() => router.push('/solicitudes')} />
+      ) : null}
 
       <Button label={t('profile.signOut')} variant="secondary" onPress={signOut} />
     </Screen>

@@ -13,7 +13,7 @@ import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { useTheme } from '@/hooks/use-theme';
 import { supabase } from '@/lib/supabase';
-import type { Junta, OpcionVoto, PuntoOrdenDia, Vivienda, Voto } from '@/types/database';
+import type { Asistente, Junta, OpcionVoto, PuntoOrdenDia, Vivienda, Voto } from '@/types/database';
 
 interface Tally {
   aFavor: number;
@@ -22,6 +22,13 @@ interface Tally {
   total: number;
   votosEmitidos: number;
 }
+
+const SENTIDO_LABEL: Record<string, string> = {
+  a_favor: 'a favor',
+  en_contra: 'en contra',
+  abstencion: 'abstención',
+  libre: 'libre (decide el representante)',
+};
 
 function calcularTally(votos: Voto[], viviendasPorId: Record<string, Vivienda>): Tally {
   let aFavor = 0;
@@ -46,8 +53,11 @@ export default function PuntoVotacion() {
   const [junta, setJunta] = useState<Junta | null>(null);
   const [miVivienda, setMiVivienda] = useState<Vivienda | null>(null);
   const [votos, setVotos] = useState<Voto[]>([]);
+  const [viviendas, setViviendas] = useState<Vivienda[]>([]);
   const [viviendasPorId, setViviendasPorId] = useState<Record<string, Vivienda>>({});
+  const [asistentes, setAsistentes] = useState<Asistente[]>([]);
   const [busy, setBusy] = useState(false);
+  const [votandoPor, setVotandoPor] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const puntoRes = await supabase.from('puntos_orden_dia').select('*').eq('id', puntoId).single();
@@ -59,15 +69,21 @@ export default function PuntoVotacion() {
     setJunta(juntaData);
 
     if (juntaData) {
-      const viviendasRes = await supabase.from('viviendas').select('*').eq('comunidad_id', juntaData.comunidad_id);
+      const [viviendasRes, asistentesRes] = await Promise.all([
+        supabase.from('viviendas').select('*').eq('comunidad_id', juntaData.comunidad_id),
+        supabase.from('asistentes').select('*').eq('junta_id', id),
+      ]);
+      const listaViviendas = (viviendasRes.data as Vivienda[] | null) ?? [];
+      setViviendas(listaViviendas);
       const map: Record<string, Vivienda> = {};
-      ((viviendasRes.data as Vivienda[] | null) ?? []).forEach((v) => {
+      listaViviendas.forEach((v) => {
         map[v.id] = v;
       });
       setViviendasPorId(map);
+      setAsistentes((asistentesRes.data as Asistente[] | null) ?? []);
 
       if (profile) {
-        setMiVivienda(Object.values(map).find((v) => v.propietario_id === profile.id) ?? null);
+        setMiVivienda(listaViviendas.find((v) => v.propietario_id === profile.id) ?? null);
       }
     }
 
@@ -110,10 +126,22 @@ export default function PuntoVotacion() {
     await supabase.from('votos').insert({
       punto_id: puntoId,
       vivienda_id: miVivienda.id,
-      propietario_id: profile.id,
+      registrado_por: profile.id,
       opcion,
     });
     setBusy(false);
+  };
+
+  const votarEnRepresentacion = async (viviendaId: string, opcion: OpcionVoto) => {
+    if (!profile) return;
+    setVotandoPor(viviendaId);
+    await supabase.from('votos').insert({
+      punto_id: puntoId,
+      vivienda_id: viviendaId,
+      registrado_por: profile.id,
+      opcion,
+    });
+    setVotandoPor(null);
   };
 
   const cerrarVotacion = async () => {
@@ -142,6 +170,10 @@ export default function PuntoVotacion() {
     : calcularTally(votos, viviendasPorId);
 
   const totalComunidad = Object.values(viviendasPorId).reduce((acc, v) => acc + v.coeficiente, 0) || 100;
+
+  const viviendasPendientes = viviendas.filter(
+    (v) => v.derecho_voto && v.propietario_id !== profile?.id && !votos.some((voto) => voto.vivienda_id === v.id)
+  );
 
   return (
     <Screen>
@@ -195,6 +227,52 @@ export default function PuntoVotacion() {
 
       {punto.resultado ? (
         <Badge label={punto.resultado.aprobado ? 'Punto aprobado' : 'Punto no aprobado'} tone={punto.resultado.aprobado ? 'success' : 'danger'} />
+      ) : null}
+
+      {puedeEditar && punto.estado === 'en_votacion' && viviendasPendientes.length > 0 ? (
+        <View style={{ gap: Spacing.sm }}>
+          <AppText variant="subtitle">Votar en representación</AppText>
+          <AppText secondary variant="caption">
+            Para viviendas representadas o presentes que no pueden votar desde la app.
+          </AppText>
+          {viviendasPendientes.map((vivienda) => {
+            const asistencia = asistentes.find((a) => a.vivienda_id === vivienda.id);
+            const instruccion = asistencia?.instrucciones_voto?.[punto.id];
+            return (
+              <Card key={vivienda.id}>
+                <AppText variant="subtitle">{vivienda.identificador}</AppText>
+                {asistencia?.representada ? (
+                  <AppText secondary variant="caption">
+                    Representada por {asistencia.representante_nombre}
+                    {instruccion ? ` · instrucción: ${SENTIDO_LABEL[instruccion]}` : ''}
+                  </AppText>
+                ) : null}
+                <View style={{ flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs }}>
+                  <Button
+                    label="A favor"
+                    style={{ flex: 1 }}
+                    onPress={() => votarEnRepresentacion(vivienda.id, 'a_favor')}
+                    disabled={votandoPor === vivienda.id}
+                  />
+                  <Button
+                    label="En contra"
+                    variant="danger"
+                    style={{ flex: 1 }}
+                    onPress={() => votarEnRepresentacion(vivienda.id, 'en_contra')}
+                    disabled={votandoPor === vivienda.id}
+                  />
+                  <Button
+                    label="Abst."
+                    variant="secondary"
+                    style={{ flex: 1 }}
+                    onPress={() => votarEnRepresentacion(vivienda.id, 'abstencion')}
+                    disabled={votandoPor === vivienda.id}
+                  />
+                </View>
+              </Card>
+            );
+          })}
+        </View>
       ) : null}
 
       {puedeEditar && punto.estado === 'en_votacion' ? (

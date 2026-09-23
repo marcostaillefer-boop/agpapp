@@ -18,11 +18,13 @@ Construida con [Expo](https://expo.dev) (SDK 57, Expo Router) y [Supabase](https
 - **Proveedores** — directorio propio del despacho por categoría (fontanería, electricidad, ascensores...), pensado para derivar incidencias sin depender de un buscador externo.
 - **Mantenimiento** — tareas rutinarias de cada comunidad (jardinería, piscina, ascensores, contraincendios, pintura periódica...), asignadas a personal propio o a un proveedor del directorio, con su frecuencia y un histórico de cuándo se han realizado. Un mismo empleado puede llevar varias tareas si la comunidad es pequeña.
 - **Juntas de propietarios** (el módulo más completo):
-  - Convocatoria con orden del día (puntos con descripción y si requieren votación).
-  - Asistencia presencial u online, registrada por propietario/vivienda.
-  - Votación en remoto desde el móvil: quien tiene permiso de editar en juntas abre la votación de un punto y cada propietario emite su voto (a favor / en contra / abstención).
+  - Convocatoria con orden del día (puntos con descripción y si requieren votación), generada como texto conforme a la LPH (encabezado, orden del día y ruegos y preguntas) y compartible desde la propia junta. Incluye el listado de propietarios morosos, que conservan voz pero no voto (art. 15.2 LPH), calculado a partir de las cuotas vencidas.
+  - Asistencia presencial u online, registrada por propietario/vivienda, o **delegación de voto**: el propietario indica quién le representa (no hace falta que sea otro propietario) y puede dejar instrucción de voto por adelantado para cada punto (a favor / en contra / abstención / libre).
+  - Votación en remoto desde el móvil: quien tiene permiso de editar en juntas abre la votación de un punto y cada propietario emite su voto. El mismo personal puede votar **en representación** de una vivienda delegada o presente sin acceso a la app, viendo la instrucción dejada por el propietario.
   - **Recuento en directo** ponderado por coeficiente de participación, vía Supabase Realtime.
   - Cierre de la votación y **generación automática del acta** con los resultados de cada punto.
+  - **Listado de propietarios tipo Excel**: vivienda, propietario, coeficiente, si es deudor, asistencia, representante y el voto de cada punto, en columnas, exportable como CSV.
+- **Fichaje y ausencias** — cada empleado ficha su entrada y salida con la hora que pone el propio servidor (no editable, para que el registro no se pueda manipular), y puede solicitar vacaciones o un día libre. Si es personal fijo de una comunidad, la solicitud necesita el visto bueno tanto de la administración como del presidente de esa comunidad; si es del despacho en general, basta con la administración.
 
 ## Cómo funciona el voto
 
@@ -93,8 +95,8 @@ Esto es un punto de partida sólido, no un producto terminado. Lo que se ha deja
 - Envío real de circulares por email/SMS: hoy quedan guardadas y visibles dentro de la app para quien vaya dirigida.
 - Flujo de solicitud de tres presupuestos a proveedores y aprobación de gastos.
 - Generación automática de la agenda de mantenimiento según la frecuencia (hoy cada aviso de "realizada" se registra a mano; no se generan avisos ni recordatorios de la próxima fecha prevista).
-- Modelo de convocatoria conforme a la Ley de Propiedad Horizontal, con listado de propietarios tipo Excel, delegación de voto y control de acuses de recibo.
-- Fichaje de empleados (registro horario) con solicitud de vacaciones/días libres y aprobación.
+- Control de acuses de recibo de la convocatoria y reenvío por correo certificado si no hay confirmación.
+- Registro horario: cumple el Real Decreto-ley 8/2019 vigente (registro diario, no manipulable, accesible al trabajador y a la administración/presidente). La normativa que exigiría un formato digital concreto está en trámite pero no publicada en el BOE a fecha de este commit; conviene revisar este módulo cuando se publique.
 - Revisar y probar a fondo las políticas RLS de `supabase/schema.sql` antes de producción.
 - La "junta online" de momento es un enlace a la videollamada que prefieras (Meet, Zoom...); la app no aloja vídeo.
 - No hay tests automatizados todavía.

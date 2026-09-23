@@ -10,6 +10,7 @@ import { Screen } from '@/components/screen';
 import { AppText } from '@/components/text';
 import { Radius, Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
+import { useComunidades } from '@/hooks/use-comunidades';
 import { useTheme } from '@/hooks/use-theme';
 import { generarCodigo } from '@/lib/codes';
 import { supabase } from '@/lib/supabase';
@@ -68,10 +69,13 @@ function PermisoChip({
 
 export default function Equipo() {
   const { t } = useTranslation();
+  const theme = useTheme();
   const { isSuperAdmin, administracionId, profile } = useAuth();
+  const { comunidades } = useComunidades();
   const [empleados, setEmpleados] = useState<(Empleado & { perfil: Profile | null })[]>([]);
   const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null);
   const [generando, setGenerando] = useState(false);
+  const [comunidadEmpleado, setComunidadEmpleado] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!administracionId) return;
@@ -115,6 +119,7 @@ export default function Equipo() {
     const { error } = await supabase.from('codigos_acceso').insert({
       codigo,
       administracion_id: administracionId,
+      comunidad_empleado_id: comunidadEmpleado,
       permisos: permisosIniciales,
       creado_por: profile.id,
     });
@@ -130,6 +135,45 @@ export default function Equipo() {
 
       <Card>
         <AppText variant="subtitle">{t('team.newAccessCode')}</AppText>
+        <AppText secondary variant="caption">
+          Deja &quot;Despacho&quot; si trabaja en varias comunidades, o elige una si es personal fijo de esa comunidad
+          (conserje, jardinero...): sus solicitudes de ausencia necesitarán también el visto bueno del presidente.
+        </AppText>
+        <View style={{ flexDirection: 'row', gap: Spacing.xs, flexWrap: 'wrap' }}>
+          <Pressable
+            onPress={() => setComunidadEmpleado(null)}
+            style={{
+              paddingHorizontal: Spacing.sm,
+              paddingVertical: 6,
+              borderRadius: Radius.pill,
+              backgroundColor: comunidadEmpleado === null ? theme.primary : theme.surface,
+              borderWidth: 1,
+              borderColor: comunidadEmpleado === null ? theme.primary : theme.border,
+            }}
+          >
+            <AppText variant="caption" color={comunidadEmpleado === null ? theme.primaryText : theme.text}>
+              Despacho
+            </AppText>
+          </Pressable>
+          {comunidades.map((c) => (
+            <Pressable
+              key={c.id}
+              onPress={() => setComunidadEmpleado(c.id)}
+              style={{
+                paddingHorizontal: Spacing.sm,
+                paddingVertical: 6,
+                borderRadius: Radius.pill,
+                backgroundColor: comunidadEmpleado === c.id ? theme.primary : theme.surface,
+                borderWidth: 1,
+                borderColor: comunidadEmpleado === c.id ? theme.primary : theme.border,
+              }}
+            >
+              <AppText variant="caption" color={comunidadEmpleado === c.id ? theme.primaryText : theme.text}>
+                {c.nombre}
+              </AppText>
+            </Pressable>
+          ))}
+        </View>
         <Button label={t('team.newAccessCode')} onPress={generarCodigoEmpleado} loading={generando} variant="secondary" />
         {codigoGenerado ? (
           <View style={{ gap: Spacing.xs, marginTop: Spacing.xs }}>
@@ -154,6 +198,11 @@ export default function Equipo() {
                 {empleado.perfil?.nombre} {empleado.perfil?.apellidos}
               </AppText>
               <AppText secondary>{empleado.perfil?.email}</AppText>
+              <AppText secondary variant="caption">
+                {empleado.comunidad_id
+                  ? comunidades.find((c) => c.id === empleado.comunidad_id)?.nombre ?? 'Comunidad concreta'
+                  : 'Personal del despacho'}
+              </AppText>
               <View style={{ flexDirection: 'row', gap: Spacing.xs, flexWrap: 'wrap', marginTop: Spacing.xs }}>
                 {MODULOS.map((modulo) => (
                   <View key={modulo} style={{ alignItems: 'center', gap: 2 }}>

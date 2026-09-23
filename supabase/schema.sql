@@ -52,6 +52,13 @@ create table if not exists comunidades (
   created_at timestamptz not null default now()
 );
 
+-- Un empleado puede ser del despacho en general (comunidad_id nulo, con
+-- permisos sobre todas las comunidades que administra) o de una comunidad
+-- concreta (un conserje o jardinero fijo de ese edificio/urbanización). En
+-- este segundo caso, sus solicitudes de ausencia también necesitan el visto
+-- bueno del presidente de esa comunidad, no solo de la administración.
+alter table empleados add column if not exists comunidad_id uuid references comunidades (id);
+
 create table if not exists viviendas (
   id uuid primary key default gen_random_uuid(),
   comunidad_id uuid not null references comunidades (id) on delete cascade,
@@ -167,6 +174,41 @@ create table if not exists tareas_mantenimiento_registros (
   created_at timestamptz not null default now()
 );
 
+-- Registro horario (Real Decreto-ley 8/2019): cada fichaje queda con la hora
+-- que pone el propio servidor en el momento del insert, nunca una hora que
+-- pueda escribir el cliente, para que el registro sea objetivo y no
+-- manipulable. No se permite editar ni borrar fichajes ya hechos.
+create table if not exists fichajes (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references profiles (id),
+  tipo text not null check (tipo in ('entrada', 'salida')),
+  hora timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+-- Solicitudes de vacaciones/días libres. Si el empleado es de una comunidad
+-- concreta (empleados.comunidad_id informado), hace falta el visto bueno
+-- tanto de la administración como del presidente de esa comunidad; si es
+-- personal del despacho en general, basta con la administración.
+create table if not exists solicitudes_ausencia (
+  id uuid primary key default gen_random_uuid(),
+  profile_id uuid not null references profiles (id),
+  tipo text not null check (tipo in ('vacaciones', 'dia_libre', 'baja', 'otro')),
+  fecha_inicio date not null,
+  fecha_fin date not null,
+  motivo text,
+  aprobado_admin boolean not null default false,
+  aprobado_admin_por uuid references profiles (id),
+  aprobado_admin_en timestamptz,
+  aprobado_presidente boolean not null default false,
+  aprobado_presidente_por uuid references profiles (id),
+  aprobado_presidente_en timestamptz,
+  rechazada boolean not null default false,
+  rechazada_por uuid references profiles (id),
+  motivo_rechazo text,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists cuotas (
   id uuid primary key default gen_random_uuid(),
   comunidad_id uuid not null references comunidades (id) on delete cascade,
@@ -225,15 +267,27 @@ create table if not exists asistentes (
   propietario_id uuid not null references profiles (id),
   modalidad text not null default 'online' check (modalidad in ('presencial', 'online')),
   representada boolean not null default false,
+  -- quién representa al propietario si no puede asistir: puede ser otro
+  -- propietario de la comunidad o cualquier otra persona (no tiene por qué
+  -- ser propietario), de ahí que sea texto libre.
+  representante_nombre text,
+  -- instrucciones de voto que el propietario deja por adelantado para su
+  -- representante, punto por punto: { "<punto_id>": "a_favor"|"en_contra"|"abstencion"|"libre" }.
+  -- "libre" significa que decide el representante.
+  instrucciones_voto jsonb,
   hora_registro timestamptz not null default now(),
-  unique (junta_id, vivienda_id)
+  unique (junta_id, vivienda_id),
+  constraint asistente_representante_informado check (not representada or representante_nombre is not null)
 );
 
 create table if not exists votos (
   id uuid primary key default gen_random_uuid(),
   punto_id uuid not null references puntos_orden_dia (id) on delete cascade,
   vivienda_id uuid not null references viviendas (id),
-  propietario_id uuid not null references profiles (id),
+  -- quién ha introducido físicamente el voto: el propio propietario votando
+  -- desde su cuenta, o el administrador/secretario anotando en directo el
+  -- voto de una vivienda representada. No es necesariamente el propietario.
+  registrado_por uuid not null references profiles (id),
   opcion text not null check (opcion in ('a_favor', 'en_contra', 'abstencion')),
   created_at timestamptz not null default now(),
   unique (punto_id, vivienda_id)
@@ -249,6 +303,9 @@ create table if not exists codigos_acceso (
   vivienda_id uuid references viviendas (id),
   administracion_id uuid references administraciones (id),
   permisos jsonb,
+  -- si el código es para un empleado fijo de una comunidad concreta
+  -- (conserje, jardinero) en vez de para el despacho en general.
+  comunidad_empleado_id uuid references comunidades (id),
   usado boolean not null default false,
   usado_por uuid references profiles (id),
   creado_por uuid not null references profiles (id),
@@ -352,6 +409,13 @@ $$;
 create or replace function comunidad_de_tarea(tid uuid)
 returns uuid language sql stable security definer as $$
   select comunidad_id from tareas_mantenimiento where id = tid;
+$$;
+
+create or replace function es_presidente_de(cid uuid)
+returns boolean language sql stable security definer as $$
+  select exists (
+    select 1 from viviendas where comunidad_id = cid and propietario_id = auth.uid() and cargo = 'presidente'
+  );
 $$;
 
 create or replace function circular_es_para_mi(cid uuid)
@@ -467,14 +531,66 @@ begin
     update viviendas set propietario_id = auth.uid() where id = v_codigo.vivienda_id;
     update profiles set rol = 'propietario' where id = auth.uid();
   else
-    insert into empleados (administracion_id, profile_id, permisos, activo)
-    values (v_codigo.administracion_id, auth.uid(), coalesce(v_codigo.permisos, '{}'::jsonb), true)
+    insert into empleados (administracion_id, profile_id, permisos, activo, comunidad_id)
+    values (v_codigo.administracion_id, auth.uid(), coalesce(v_codigo.permisos, '{}'::jsonb), true, v_codigo.comunidad_empleado_id)
     on conflict (administracion_id, profile_id) do update
-      set permisos = excluded.permisos, activo = true;
+      set permisos = excluded.permisos, activo = true, comunidad_id = excluded.comunidad_id;
     update profiles set rol = 'empleado' where id = auth.uid();
   end if;
 
   update codigos_acceso set usado = true, usado_por = auth.uid() where id = v_codigo.id;
+end;
+$$;
+
+-- Aprueba o rechaza una solicitud de ausencia. Solo puede hacerlo el titular
+-- del despacho al que pertenece el empleado, o el presidente de la comunidad
+-- a la que está adscrito ese empleado (si lo está). Un rechazo de cualquiera
+-- de los dos cierra la solicitud entera.
+create or replace function responder_solicitud_ausencia(solicitud uuid, aprobar boolean, motivo text default null)
+returns void language plpgsql security definer as $$
+declare
+  v_profile_id uuid;
+  v_administracion_id uuid;
+  v_comunidad_id uuid;
+  v_es_admin boolean := false;
+  v_es_presidente boolean := false;
+begin
+  select profile_id into v_profile_id from solicitudes_ausencia where id = solicitud;
+  if v_profile_id is null then
+    raise exception 'Solicitud no encontrada';
+  end if;
+
+  select administracion_id, comunidad_id into v_administracion_id, v_comunidad_id
+  from empleados where profile_id = v_profile_id limit 1;
+
+  if v_administracion_id is not null then
+    v_es_admin := es_super_admin_administracion(v_administracion_id);
+  end if;
+  if v_comunidad_id is not null then
+    v_es_presidente := es_presidente_de(v_comunidad_id);
+  end if;
+
+  if not v_es_admin and not v_es_presidente then
+    raise exception 'No tienes permiso para responder a esta solicitud';
+  end if;
+
+  if not aprobar then
+    update solicitudes_ausencia
+    set rechazada = true, rechazada_por = auth.uid(), motivo_rechazo = motivo
+    where id = solicitud;
+    return;
+  end if;
+
+  if v_es_admin then
+    update solicitudes_ausencia
+    set aprobado_admin = true, aprobado_admin_por = auth.uid(), aprobado_admin_en = now()
+    where id = solicitud;
+  end if;
+  if v_es_presidente then
+    update solicitudes_ausencia
+    set aprobado_presidente = true, aprobado_presidente_por = auth.uid(), aprobado_presidente_en = now()
+    where id = solicitud;
+  end if;
 end;
 $$;
 
@@ -499,6 +615,8 @@ alter table circulares enable row level security;
 alter table circulares_destinatarios enable row level security;
 alter table tareas_mantenimiento enable row level security;
 alter table tareas_mantenimiento_registros enable row level security;
+alter table fichajes enable row level security;
+alter table solicitudes_ausencia enable row level security;
 
 -- profiles
 create policy "ver mi perfil o el de mi comunidad/despacho" on profiles for select
@@ -587,22 +705,32 @@ create policy "gestionar orden del dia con permiso" on puntos_orden_dia for all
 -- asistentes
 create policy "ver asistentes de juntas visibles" on asistentes for select
   using (es_visible_junta(junta_id));
-create policy "registrar mi propia asistencia" on asistentes for insert
+create policy "registrar asistencia propia o con permiso" on asistentes for insert
   with check (
     es_visible_junta(junta_id)
-    and propietario_id = auth.uid()
-    and es_mi_vivienda(vivienda_id)
+    and (
+      (propietario_id = auth.uid() and es_mi_vivienda(vivienda_id))
+      or puede_editar(comunidad_de_junta(junta_id), 'juntas')
+    )
+  );
+create policy "actualizar asistencia propia o con permiso" on asistentes for update
+  using (
+    (propietario_id = auth.uid() and es_mi_vivienda(vivienda_id))
+    or puede_editar(comunidad_de_junta(junta_id), 'juntas')
   );
 
 -- votos
 create policy "ver votos de puntos visibles" on votos for select
   using (es_visible_punto(punto_id));
-create policy "votar con mi propia vivienda" on votos for insert
+create policy "votar con mi vivienda o en representacion con permiso" on votos for insert
   with check (
-    propietario_id = auth.uid()
-    and es_mi_vivienda(vivienda_id)
+    registrado_por = auth.uid()
     and exists (select 1 from puntos_orden_dia p where p.id = punto_id and p.estado = 'en_votacion')
     and exists (select 1 from viviendas v where v.id = vivienda_id and v.derecho_voto)
+    and (
+      es_mi_vivienda(vivienda_id)
+      or puede_editar(comunidad_de_punto(punto_id), 'juntas')
+    )
   );
 
 -- codigos_acceso
@@ -664,6 +792,40 @@ create policy "ver registros de tareas de mi comunidad" on tareas_mantenimiento_
 create policy "gestionar registros de tareas con permiso" on tareas_mantenimiento_registros for all
   using (puede_editar(comunidad_de_tarea(tarea_id), 'mantenimiento'))
   with check (puede_editar(comunidad_de_tarea(tarea_id), 'mantenimiento'));
+
+-- fichajes: nunca hay política de update/delete a propósito, para que el
+-- registro horario no se pueda manipular una vez creado.
+create policy "ver mis fichajes o los de mi personal" on fichajes for select
+  using (
+    profile_id = auth.uid()
+    or exists (
+      select 1 from empleados e
+      where e.profile_id = fichajes.profile_id
+      and (
+        es_super_admin_administracion(e.administracion_id)
+        or (e.comunidad_id is not null and es_presidente_de(e.comunidad_id))
+      )
+    )
+  );
+create policy "fichar por mi cuenta" on fichajes for insert
+  with check (profile_id = auth.uid());
+
+-- solicitudes_ausencia: las respuestas (aprobar/rechazar) solo se hacen a
+-- través de responder_solicitud_ausencia(); no hay política de update.
+create policy "ver mis solicitudes o las de mi personal" on solicitudes_ausencia for select
+  using (
+    profile_id = auth.uid()
+    or exists (
+      select 1 from empleados e
+      where e.profile_id = solicitudes_ausencia.profile_id
+      and (
+        es_super_admin_administracion(e.administracion_id)
+        or (e.comunidad_id is not null and es_presidente_de(e.comunidad_id))
+      )
+    )
+  );
+create policy "solicitar mi propia ausencia" on solicitudes_ausencia for insert
+  with check (profile_id = auth.uid());
 
 -- ============================================================
 -- STORAGE: bucket de documentos

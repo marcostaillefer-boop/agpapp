@@ -17,6 +17,9 @@ export type CargoDirectivo = 'presidente' | 'vicepresidente' | 'secretario' | 'v
 export type TipoEjecutor = 'personal' | 'externa';
 export type FrecuenciaTarea = 'puntual' | 'semanal' | 'quincenal' | 'mensual' | 'trimestral' | 'semestral' | 'anual';
 export type EstadoRegistroTarea = 'pendiente' | 'completada';
+export type SentidoInstruccion = 'a_favor' | 'en_contra' | 'abstencion' | 'libre';
+export type TipoFichaje = 'entrada' | 'salida';
+export type TipoAusencia = 'vacaciones' | 'dia_libre' | 'baja' | 'otro';
 
 export type ResultadoPunto = {
   votos_emitidos: number;
@@ -51,6 +54,7 @@ export type Empleado = {
   profile_id: string;
   permisos: Permisos;
   activo: boolean;
+  comunidad_id: string | null;
   created_at: string;
 };
 
@@ -165,6 +169,8 @@ export type Asistente = {
   propietario_id: string;
   modalidad: ModalidadAsistencia;
   representada: boolean;
+  representante_nombre: string | null;
+  instrucciones_voto: Partial<Record<string, SentidoInstruccion>> | null;
   hora_registro: string;
 };
 
@@ -172,7 +178,7 @@ export type Voto = {
   id: string;
   punto_id: string;
   vivienda_id: string;
-  propietario_id: string;
+  registrado_por: string;
   opcion: OpcionVoto;
   created_at: string;
 };
@@ -227,11 +233,39 @@ export type CodigoAcceso = {
   codigo: string;
   vivienda_id: string | null;
   administracion_id: string | null;
+  comunidad_empleado_id: string | null;
   permisos: Permisos | null;
   usado: boolean;
   usado_por: string | null;
   creado_por: string;
   expira_en: string | null;
+  created_at: string;
+};
+
+export type Fichaje = {
+  id: string;
+  profile_id: string;
+  tipo: TipoFichaje;
+  hora: string;
+  created_at: string;
+};
+
+export type SolicitudAusencia = {
+  id: string;
+  profile_id: string;
+  tipo: TipoAusencia;
+  fecha_inicio: string;
+  fecha_fin: string;
+  motivo: string | null;
+  aprobado_admin: boolean;
+  aprobado_admin_por: string | null;
+  aprobado_admin_en: string | null;
+  aprobado_presidente: boolean;
+  aprobado_presidente_por: string | null;
+  aprobado_presidente_en: string | null;
+  rechazada: boolean;
+  rechazada_por: string | null;
+  motivo_rechazo: string | null;
   created_at: string;
 };
 
@@ -263,12 +297,15 @@ export type Database = {
       circulares_destinatarios: TableDef<CircularDestinatario>;
       tareas_mantenimiento: TableDef<TareaMantenimiento>;
       tareas_mantenimiento_registros: TableDef<RegistroTarea>;
+      fichajes: TableDef<Fichaje>;
+      solicitudes_ausencia: TableDef<SolicitudAusencia>;
     };
     Views: Record<string, never>;
     Functions: {
       abrir_votacion: { Args: { punto: string }; Returns: undefined };
       cerrar_votacion: { Args: { punto: string }; Returns: undefined };
       redimir_codigo_acceso: { Args: { codigo_input: string }; Returns: undefined };
+      responder_solicitud_ausencia: { Args: { solicitud: string; aprobar: boolean; motivo: string | null }; Returns: undefined };
     };
   };
 };
