@@ -57,8 +57,23 @@ create table if not exists viviendas (
   comunidad_id uuid not null references comunidades (id) on delete cascade,
   propietario_id uuid references profiles (id),
   identificador text not null,
+  -- portal/bloque para poder agrupar y filtrar viviendas dentro de una misma
+  -- comunidad o urbanización con varios edificios.
+  bloque text,
   coeficiente numeric(6, 4) not null default 0,
   derecho_voto boolean not null default true,
+  -- cargo directivo del propietario de esta vivienda en la comunidad, asignado
+  -- tras cada junta ordinaria a partir de lo acordado en el acta.
+  cargo text check (cargo in ('presidente', 'vicepresidente', 'secretario', 'vocal')),
+  -- Datos de contacto del propietario, mantenidos por la administración con
+  -- independencia de si esa persona ha llegado a registrarse en la app (si lo
+  -- hace, propietario_id la vincula, pero el listado de contacto sigue siendo
+  -- este). Conforme a la LPH, a efectos de notificaciones se usa la dirección
+  -- de la propia comunidad salvo que el propietario haya comunicado otra.
+  nombre_propietario text,
+  telefono text,
+  email text,
+  direccion_notificacion text,
   created_at timestamptz not null default now()
 );
 
@@ -70,8 +85,48 @@ create table if not exists incidencias (
   titulo text not null,
   descripcion text not null,
   estado text not null default 'abierta' check (estado in ('abierta', 'en_proceso', 'cerrada')),
+  foto_url text,
+  latitud double precision,
+  longitud double precision,
+  -- si no hay GPS disponible o el propietario prefiere describirla a mano.
+  ubicacion_texto text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+-- Proveedores habituales del despacho (fontanería, electricidad, ascensores...),
+-- para poder derivar una incidencia sin depender de un buscador externo.
+create table if not exists proveedores (
+  id uuid primary key default gen_random_uuid(),
+  administracion_id uuid not null references administraciones (id) on delete cascade,
+  categoria text not null,
+  nombre text not null,
+  telefono text,
+  email text,
+  notas text,
+  creado_por uuid not null references profiles (id),
+  created_at timestamptz not null default now()
+);
+
+-- Circulares/avisos que la administración envía a los propietarios: a toda la
+-- comunidad, a un bloque/portal concreto, o a una selección de viviendas.
+create table if not exists circulares (
+  id uuid primary key default gen_random_uuid(),
+  comunidad_id uuid not null references comunidades (id) on delete cascade,
+  titulo text not null,
+  mensaje text not null,
+  destinatarios text not null check (destinatarios in ('todos', 'bloque', 'seleccion')),
+  bloque text,
+  creado_por uuid not null references profiles (id),
+  created_at timestamptz not null default now(),
+  constraint circular_bloque_informado check (destinatarios <> 'bloque' or bloque is not null)
+);
+
+create table if not exists circulares_destinatarios (
+  id uuid primary key default gen_random_uuid(),
+  circular_id uuid not null references circulares (id) on delete cascade,
+  vivienda_id uuid not null references viviendas (id) on delete cascade,
+  unique (circular_id, vivienda_id)
 );
 
 create table if not exists cuotas (
@@ -256,6 +311,32 @@ returns uuid language sql stable security definer as $$
   select comunidad_id from viviendas where id = vid;
 $$;
 
+create or replace function circular_es_para_mi(cid uuid)
+returns boolean language sql stable security definer as $$
+  select exists (
+    select 1 from circulares c
+    where c.id = cid
+    and (
+      c.destinatarios = 'todos'
+      or (
+        c.destinatarios = 'bloque'
+        and exists (
+          select 1 from viviendas v
+          where v.comunidad_id = c.comunidad_id and v.propietario_id = auth.uid() and v.bloque = c.bloque
+        )
+      )
+      or (
+        c.destinatarios = 'seleccion'
+        and exists (
+          select 1 from circulares_destinatarios cd
+          join viviendas v on v.id = cd.vivienda_id
+          where cd.circular_id = c.id and v.propietario_id = auth.uid()
+        )
+      )
+    )
+  );
+$$;
+
 -- ============================================================
 -- RPC: abrir y cerrar votación de un punto del orden del día
 -- ============================================================
@@ -371,6 +452,8 @@ alter table puntos_orden_dia enable row level security;
 alter table asistentes enable row level security;
 alter table votos enable row level security;
 alter table codigos_acceso enable row level security;
+alter table circulares enable row level security;
+alter table circulares_destinatarios enable row level security;
 
 -- profiles
 create policy "ver mi perfil o el de mi comunidad/despacho" on profiles for select
@@ -493,6 +576,36 @@ create policy "crear codigos de vivienda con permiso" on codigos_acceso for inse
     )
   );
 
+-- proveedores
+alter table proveedores enable row level security;
+
+create policy "ver proveedores de mi despacho" on proveedores for select
+  using (
+    es_super_admin_administracion(administracion_id)
+    or permisos_empleado(administracion_id) is not null
+  );
+create policy "gestionar proveedores con permiso" on proveedores for all
+  using (
+    es_super_admin_administracion(administracion_id)
+    or permisos_empleado(administracion_id) ->> 'comunidades' = 'editar'
+  )
+  with check (
+    es_super_admin_administracion(administracion_id)
+    or permisos_empleado(administracion_id) ->> 'comunidades' = 'editar'
+  );
+
+-- circulares
+create policy "ver circulares de mi comunidad o dirigidas a mi" on circulares for select
+  using (es_personal_comunidad(comunidad_id) or circular_es_para_mi(id));
+create policy "enviar circulares con permiso" on circulares for insert
+  with check (puede_editar(comunidad_id, 'comunidades') and creado_por = auth.uid());
+
+-- circulares_destinatarios
+create policy "ver destinatarios de circulares que administro" on circulares_destinatarios for select
+  using (exists (select 1 from circulares c where c.id = circular_id and es_personal_comunidad(c.comunidad_id)));
+create policy "asignar destinatarios con permiso" on circulares_destinatarios for insert
+  with check (exists (select 1 from circulares c where c.id = circular_id and puede_editar(c.comunidad_id, 'comunidades')));
+
 -- ============================================================
 -- STORAGE: bucket de documentos
 -- ============================================================
@@ -508,4 +621,21 @@ create policy "subir documentos con permiso" on storage.objects for insert
   with check (
     bucket_id = 'documentos'
     and puede_editar((storage.foldername(name))[1]::uuid, 'documentos')
+  );
+
+-- ============================================================
+-- STORAGE: bucket de fotos de incidencias
+-- ============================================================
+
+insert into storage.buckets (id, name, public)
+values ('incidencias', 'incidencias', true)
+on conflict (id) do nothing;
+
+create policy "leer fotos de incidencias públicamente" on storage.objects for select
+  using (bucket_id = 'incidencias');
+
+create policy "subir foto de incidencia si veo la comunidad" on storage.objects for insert
+  with check (
+    bucket_id = 'incidencias'
+    and es_visible_comunidad((storage.foldername(name))[1]::uuid)
   );

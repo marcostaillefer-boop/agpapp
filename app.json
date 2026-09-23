@@ -34,7 +34,20 @@
         }
       ],
       "@react-native-community/datetimepicker",
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "AGP Fincas necesita tu ubicación para situar la incidencia que estás reportando."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "AGP Fincas necesita la cámara para hacer una foto de la incidencia.",
+          "photosPermission": "AGP Fincas necesita tus fotos para adjuntar una imagen a la incidencia."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -13,6 +13,7 @@ export type EstadoJunta = 'convocada' | 'en_curso' | 'finalizada';
 export type EstadoPunto = 'pendiente' | 'en_votacion' | 'cerrado';
 export type ModalidadAsistencia = 'presencial' | 'online';
 export type OpcionVoto = 'a_favor' | 'en_contra' | 'abstencion';
+export type CargoDirectivo = 'presidente' | 'vicepresidente' | 'secretario' | 'vocal';
 
 export type ResultadoPunto = {
   votos_emitidos: number;
@@ -64,8 +65,14 @@ export type Vivienda = {
   comunidad_id: string;
   propietario_id: string | null;
   identificador: string;
+  bloque: string | null;
   coeficiente: number;
   derecho_voto: boolean;
+  cargo: CargoDirectivo | null;
+  nombre_propietario: string | null;
+  telefono: string | null;
+  email: string | null;
+  direccion_notificacion: string | null;
   created_at: string;
 };
 
@@ -77,8 +84,24 @@ export type Incidencia = {
   titulo: string;
   descripcion: string;
   estado: EstadoIncidencia;
+  foto_url: string | null;
+  latitud: number | null;
+  longitud: number | null;
+  ubicacion_texto: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type Proveedor = {
+  id: string;
+  administracion_id: string;
+  categoria: string;
+  nombre: string;
+  telefono: string | null;
+  email: string | null;
+  notas: string | null;
+  creado_por: string;
+  created_at: string;
 };
 
 export type Cuota = {
@@ -151,6 +174,25 @@ export type Voto = {
   created_at: string;
 };
 
+export type TipoDestinatarios = 'todos' | 'bloque' | 'seleccion';
+
+export type Circular = {
+  id: string;
+  comunidad_id: string;
+  titulo: string;
+  mensaje: string;
+  destinatarios: TipoDestinatarios;
+  bloque: string | null;
+  creado_por: string;
+  created_at: string;
+};
+
+export type CircularDestinatario = {
+  id: string;
+  circular_id: string;
+  vivienda_id: string;
+};
+
 export type CodigoAcceso = {
   id: string;
   codigo: string;
@@ -187,6 +229,9 @@ export type Database = {
       asistentes: TableDef<Asistente>;
       votos: TableDef<Voto>;
       codigos_acceso: TableDef<CodigoAcceso>;
+      proveedores: TableDef<Proveedor>;
+      circulares: TableDef<Circular>;
+      circulares_destinatarios: TableDef<CircularDestinatario>;
     };
     Views: Record<string, never>;
     Functions: {

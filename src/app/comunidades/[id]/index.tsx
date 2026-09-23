@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { Share, View } from 'react-native';
+import { Pressable, Share, View } from 'react-native';
 
 import { Badge } from '@/components/badge';
 import { Button } from '@/components/button';
@@ -11,21 +11,50 @@ import { AppText } from '@/components/text';
 import { TextField } from '@/components/text-field';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
+import { useTheme } from '@/hooks/use-theme';
 import { generarCodigo } from '@/lib/codes';
 import { supabase } from '@/lib/supabase';
-import type { Comunidad, Vivienda } from '@/types/database';
+import type { CargoDirectivo, Comunidad, Vivienda } from '@/types/database';
+
+const CARGOS: { value: CargoDirectivo; label: string }[] = [
+  { value: 'presidente', label: 'Presidente' },
+  { value: 'vicepresidente', label: 'Vicepresidente' },
+  { value: 'secretario', label: 'Secretario' },
+  { value: 'vocal', label: 'Vocal' },
+];
+
+type BorradorContacto = {
+  nombre_propietario: string;
+  telefono: string;
+  email: string;
+  direccion_notificacion: string;
+  bloque: string;
+};
+
+const borradorVacio: BorradorContacto = {
+  nombre_propietario: '',
+  telefono: '',
+  email: '',
+  direccion_notificacion: '',
+  bloque: '',
+};
 
 export default function ComunidadDetalle() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { isAdmin, can, profile } = useAuth();
+  const theme = useTheme();
   const puedeEditar = can('comunidades', 'editar');
   const [comunidad, setComunidad] = useState<Comunidad | null>(null);
   const [viviendas, setViviendas] = useState<Vivienda[]>([]);
   const [nuevoIdentificador, setNuevoIdentificador] = useState('');
+  const [nuevoBloque, setNuevoBloque] = useState('');
   const [nuevoCoeficiente, setNuevoCoeficiente] = useState('');
   const [creandoVivienda, setCreandoVivienda] = useState(false);
   const [codigoPorVivienda, setCodigoPorVivienda] = useState<Record<string, string>>({});
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [borrador, setBorrador] = useState<BorradorContacto>(borradorVacio);
+  const [guardandoContacto, setGuardandoContacto] = useState(false);
 
   const load = useCallback(async () => {
     const [comunidadRes, viviendasRes] = await Promise.all([
@@ -48,11 +77,47 @@ export default function ComunidadDetalle() {
     await supabase.from('viviendas').insert({
       comunidad_id: id,
       identificador: nuevoIdentificador.trim(),
+      bloque: nuevoBloque.trim() || null,
       coeficiente: Number(nuevoCoeficiente.replace(',', '.')) || 0,
     });
     setNuevoIdentificador('');
+    setNuevoBloque('');
     setNuevoCoeficiente('');
     setCreandoVivienda(false);
+    await load();
+  };
+
+  const cambiarCargo = async (vivienda: Vivienda, cargo: CargoDirectivo) => {
+    const nuevoCargo = vivienda.cargo === cargo ? null : cargo;
+    await supabase.from('viviendas').update({ cargo: nuevoCargo }).eq('id', vivienda.id);
+    await load();
+  };
+
+  const abrirEdicionContacto = (vivienda: Vivienda) => {
+    setEditandoId(vivienda.id);
+    setBorrador({
+      nombre_propietario: vivienda.nombre_propietario ?? '',
+      telefono: vivienda.telefono ?? '',
+      email: vivienda.email ?? '',
+      direccion_notificacion: vivienda.direccion_notificacion ?? '',
+      bloque: vivienda.bloque ?? '',
+    });
+  };
+
+  const guardarContacto = async (vivienda: Vivienda) => {
+    setGuardandoContacto(true);
+    await supabase
+      .from('viviendas')
+      .update({
+        nombre_propietario: borrador.nombre_propietario.trim() || null,
+        telefono: borrador.telefono.trim() || null,
+        email: borrador.email.trim() || null,
+        direccion_notificacion: borrador.direccion_notificacion.trim() || null,
+        bloque: borrador.bloque.trim() || null,
+      })
+      .eq('id', vivienda.id);
+    setGuardandoContacto(false);
+    setEditandoId(null);
     await load();
   };
 
@@ -96,6 +161,10 @@ export default function ComunidadDetalle() {
           <AppText variant="subtitle">Documentos</AppText>
           <AppText secondary>Actas y convocatorias</AppText>
         </Card>
+        <Card style={{ flexGrow: 1 }} onPress={() => router.push(`/comunidades/${id}/circulares`)}>
+          <AppText variant="subtitle">Circulares</AppText>
+          <AppText secondary>Avisos a propietarios</AppText>
+        </Card>
       </View>
 
       <View style={{ gap: Spacing.sm }}>
@@ -107,10 +176,15 @@ export default function ComunidadDetalle() {
         ) : (
           viviendas.map((vivienda) => {
             const codigoGenerado = codigoPorVivienda[vivienda.id];
+            const editando = editandoId === vivienda.id;
+            const direccionEfectiva = vivienda.direccion_notificacion || comunidad.direccion;
             return (
               <Card key={vivienda.id}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                  <AppText variant="subtitle">{vivienda.identificador}</AppText>
+                  <AppText variant="subtitle">
+                    {vivienda.identificador}
+                    {vivienda.bloque ? ` · ${vivienda.bloque}` : ''}
+                  </AppText>
                   <AppText secondary>{vivienda.coeficiente}%</AppText>
                 </View>
                 {!vivienda.derecho_voto ? (
@@ -118,10 +192,98 @@ export default function ComunidadDetalle() {
                     Sin derecho a voto
                   </AppText>
                 ) : null}
+                {vivienda.cargo ? (
+                  <Badge label={CARGOS.find((c) => c.value === vivienda.cargo)?.label ?? ''} tone="primary" />
+                ) : null}
+
+                {puedeEditar ? (
+                  <View style={{ flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap', marginTop: Spacing.xs }}>
+                    {CARGOS.map((cargo) => {
+                      const activo = vivienda.cargo === cargo.value;
+                      return (
+                        <Pressable key={cargo.value} onPress={() => cambiarCargo(vivienda, cargo.value)}>
+                          <AppText
+                            variant="caption"
+                            color={activo ? theme.primary : theme.textSecondary}
+                            style={{ fontWeight: activo ? '700' : '400' }}
+                          >
+                            {cargo.label}
+                          </AppText>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : null}
+
+                {editando ? (
+                  <View style={{ gap: Spacing.xs, marginTop: Spacing.xs }}>
+                    <TextField
+                      label="Nombre del propietario"
+                      value={borrador.nombre_propietario}
+                      onChangeText={(v) => setBorrador((b) => ({ ...b, nombre_propietario: v }))}
+                    />
+                    <TextField
+                      label="Teléfono"
+                      value={borrador.telefono}
+                      onChangeText={(v) => setBorrador((b) => ({ ...b, telefono: v }))}
+                      keyboardType="phone-pad"
+                    />
+                    <TextField
+                      label="Email"
+                      value={borrador.email}
+                      onChangeText={(v) => setBorrador((b) => ({ ...b, email: v }))}
+                      autoCapitalize="none"
+                      keyboardType="email-address"
+                    />
+                    <TextField
+                      label="Dirección de notificación (si es distinta de la comunidad)"
+                      value={borrador.direccion_notificacion}
+                      onChangeText={(v) => setBorrador((b) => ({ ...b, direccion_notificacion: v }))}
+                    />
+                    <TextField
+                      label="Bloque / portal"
+                      value={borrador.bloque}
+                      onChangeText={(v) => setBorrador((b) => ({ ...b, bloque: v }))}
+                    />
+                    <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+                      <Button
+                        label="Guardar"
+                        onPress={() => guardarContacto(vivienda)}
+                        loading={guardandoContacto}
+                        style={{ flex: 1 }}
+                      />
+                      <Button
+                        label="Cancelar"
+                        variant="secondary"
+                        onPress={() => setEditandoId(null)}
+                        style={{ flex: 1 }}
+                      />
+                    </View>
+                  </View>
+                ) : (
+                  <View style={{ gap: 2, marginTop: Spacing.xs }}>
+                    {vivienda.nombre_propietario ? (
+                      <AppText variant="caption">{vivienda.nombre_propietario}</AppText>
+                    ) : null}
+                    {vivienda.telefono ? <AppText variant="caption" secondary>{vivienda.telefono}</AppText> : null}
+                    {vivienda.email ? <AppText variant="caption" secondary>{vivienda.email}</AppText> : null}
+                    <AppText variant="caption" secondary>
+                      {direccionEfectiva}
+                      {!vivienda.direccion_notificacion ? ' (la de la comunidad)' : ''}
+                    </AppText>
+                    {puedeEditar ? (
+                      <Pressable onPress={() => abrirEdicionContacto(vivienda)}>
+                        <AppText variant="caption" color={theme.primary}>
+                          Editar datos de contacto
+                        </AppText>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                )}
 
                 {puedeEditar && !vivienda.propietario_id ? (
                   codigoGenerado ? (
-                    <View style={{ gap: Spacing.xs }}>
+                    <View style={{ gap: Spacing.xs, marginTop: Spacing.xs }}>
                       <AppText variant="subtitle">{codigoGenerado}</AppText>
                       <Button
                         label="Compartir código"
@@ -136,6 +298,7 @@ export default function ComunidadDetalle() {
                       label="Generar código para el propietario"
                       variant="secondary"
                       onPress={() => generarCodigoPropietario(vivienda)}
+                      style={{ marginTop: Spacing.xs }}
                     />
                   )
                 ) : vivienda.propietario_id ? (
@@ -153,7 +316,13 @@ export default function ComunidadDetalle() {
               label="Identificador"
               value={nuevoIdentificador}
               onChangeText={setNuevoIdentificador}
-              placeholder="Portal A - 3ºB"
+              placeholder="3ºB"
+            />
+            <TextField
+              label="Bloque / portal (opcional)"
+              value={nuevoBloque}
+              onChangeText={setNuevoBloque}
+              placeholder="Portal A"
             />
             <TextField
               label="Coeficiente de participación (%)"

@@ -9,9 +9,13 @@ Construida con [Expo](https://expo.dev) (SDK 57, Expo Router) y [Supabase](https
 - **Bienvenida y acceso** — selector de idioma, y un portal de entrada que separa "Administración" (despacho) de "Propietario". Los propietarios entran con un código que les da su administración; no hay alta libre.
 - **Roles y permisos** — un despacho de administración de fincas (`administraciones`) tiene un titular (`super_admin`) y puede tener empleados (`empleados`) con permisos independientes por módulo (comunidades, incidencias, cuotas, documentos, juntas), cada uno en "ninguno / ver / editar". El titular siempre tiene acceso total. Los propietarios solo ven su propia comunidad.
 - **Comunidades y propietarios** — fichas de comunidades, viviendas, coeficiente de participación y derecho a voto. Generación de códigos de acceso por vivienda.
-- **Incidencias** — los propietarios reportan avisos, el personal con permiso de "editar" en incidencias cambia su estado.
+- **Incidencias** — los propietarios reportan avisos con foto (cámara o galería) y ubicación exacta por GPS, con un campo de texto como alternativa si no hay señal o el propietario prefiere describir el lugar a mano. El personal con permiso de "editar" en incidencias cambia su estado.
 - **Cuotas** — estado de pagos por vivienda (pendiente / pagada / vencida).
 - **Documentos** — subida de archivos a Supabase Storage, o enlace a un documento externo (por ejemplo, SharePoint del propio despacho) para no ocupar espacio en la app.
+- **Propietarios y contacto** — cada vivienda guarda su propio nombre de propietario, teléfono, email, bloque/portal y dirección de notificación, con independencia de si esa persona ha llegado a registrarse en la app. Conforme a la LPH, si no se ha indicado una dirección de notificación distinta, se usa la de la propia comunidad.
+- **Cargos de la junta directiva** — presidente, vicepresidente, secretario y vocal se marcan por vivienda desde la ficha de la comunidad, tal como se acuerda cada año en la junta ordinaria.
+- **Circulares** — avisos a toda la comunidad, a un bloque/portal concreto o a una selección de viviendas. Por ahora se guardan y se muestran dentro de la app; el envío real por email o SMS es un paso posterior.
+- **Proveedores** — directorio propio del despacho por categoría (fontanería, electricidad, ascensores...), pensado para derivar incidencias sin depender de un buscador externo.
 - **Juntas de propietarios** (el módulo más completo):
   - Convocatoria con orden del día (puntos con descripción y si requieren votación).
   - Asistencia presencial u online, registrada por propietario/vivienda.
@@ -84,9 +88,9 @@ supabase/schema.sql        esquema, RLS, roles y funciones de votación/códigos
 Esto es un punto de partida sólido, no un producto terminado. Lo que se ha dejado fuera deliberadamente en esta fase, para ir por partes:
 
 - Traducción automática del texto de las incidencias entre el idioma del propietario y el de la administración (de momento se muestra tal cual se escribió).
-- Búsqueda automática de proveedores para presupuestos: por ahora cada despacho gestiona su propia lista de proveedores fuera de la app.
-- Fotos y geolocalización en las incidencias.
-- Búsqueda de tres presupuestos y flujo de aprobación de gastos.
+- Búsqueda automática de proveedores para presupuestos: por ahora cada despacho gestiona su propia lista de proveedores dentro de la app (ver módulo "Proveedores"), sin buscador externo.
+- Envío real de circulares por email/SMS: hoy quedan guardadas y visibles dentro de la app para quien vaya dirigida.
+- Flujo de solicitud de tres presupuestos a proveedores y aprobación de gastos.
 - Modelo de convocatoria conforme a la Ley de Propiedad Horizontal, con listado de propietarios tipo Excel, delegación de voto y control de acuses de recibo.
 - Fichaje de empleados (registro horario) con solicitud de vacaciones/días libres y aprobación.
 - Revisar y probar a fondo las políticas RLS de `supabase/schema.sql` antes de producción.
