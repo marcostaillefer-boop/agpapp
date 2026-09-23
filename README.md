@@ -7,7 +7,7 @@ Construida con [Expo](https://expo.dev) (SDK 57, Expo Router) y [Supabase](https
 ## Módulos
 
 - **Bienvenida y acceso** — selector de idioma, y un portal de entrada que separa "Administración" (despacho) de "Propietario". Los propietarios entran con un código que les da su administración; no hay alta libre.
-- **Roles y permisos** — un despacho de administración de fincas (`administraciones`) tiene un titular (`super_admin`) y puede tener empleados (`empleados`) con permisos independientes por módulo (comunidades, incidencias, cuotas, documentos, juntas), cada uno en "ninguno / ver / editar". El titular siempre tiene acceso total. Los propietarios solo ven su propia comunidad.
+- **Roles y permisos** — un despacho de administración de fincas (`administraciones`) tiene un titular (`super_admin`) y puede tener empleados (`empleados`) con permisos independientes por módulo (comunidades, incidencias, cuotas, documentos, juntas, mantenimiento), cada uno en "ninguno / ver / editar". El titular siempre tiene acceso total. Los propietarios solo ven su propia comunidad. Esto permite dar de alta a un jardinero o a alguien de mantenimiento con acceso solo a sus tareas, sin tocar el resto de la app.
 - **Comunidades y propietarios** — fichas de comunidades, viviendas, coeficiente de participación y derecho a voto. Generación de códigos de acceso por vivienda.
 - **Incidencias** — los propietarios reportan avisos con foto (cámara o galería) y ubicación exacta por GPS, con un campo de texto como alternativa si no hay señal o el propietario prefiere describir el lugar a mano. El personal con permiso de "editar" en incidencias cambia su estado.
 - **Cuotas** — estado de pagos por vivienda (pendiente / pagada / vencida).
@@ -16,6 +16,7 @@ Construida con [Expo](https://expo.dev) (SDK 57, Expo Router) y [Supabase](https
 - **Cargos de la junta directiva** — presidente, vicepresidente, secretario y vocal se marcan por vivienda desde la ficha de la comunidad, tal como se acuerda cada año en la junta ordinaria.
 - **Circulares** — avisos a toda la comunidad, a un bloque/portal concreto o a una selección de viviendas. Por ahora se guardan y se muestran dentro de la app; el envío real por email o SMS es un paso posterior.
 - **Proveedores** — directorio propio del despacho por categoría (fontanería, electricidad, ascensores...), pensado para derivar incidencias sin depender de un buscador externo.
+- **Mantenimiento** — tareas rutinarias de cada comunidad (jardinería, piscina, ascensores, contraincendios, pintura periódica...), asignadas a personal propio o a un proveedor del directorio, con su frecuencia y un histórico de cuándo se han realizado. Un mismo empleado puede llevar varias tareas si la comunidad es pequeña.
 - **Juntas de propietarios** (el módulo más completo):
   - Convocatoria con orden del día (puntos con descripción y si requieren votación).
   - Asistencia presencial u online, registrada por propietario/vivienda.
@@ -91,6 +92,7 @@ Esto es un punto de partida sólido, no un producto terminado. Lo que se ha deja
 - Búsqueda automática de proveedores para presupuestos: por ahora cada despacho gestiona su propia lista de proveedores dentro de la app (ver módulo "Proveedores"), sin buscador externo.
 - Envío real de circulares por email/SMS: hoy quedan guardadas y visibles dentro de la app para quien vaya dirigida.
 - Flujo de solicitud de tres presupuestos a proveedores y aprobación de gastos.
+- Generación automática de la agenda de mantenimiento según la frecuencia (hoy cada aviso de "realizada" se registra a mano; no se generan avisos ni recordatorios de la próxima fecha prevista).
 - Modelo de convocatoria conforme a la Ley de Propiedad Horizontal, con listado de propietarios tipo Excel, delegación de voto y control de acuses de recibo.
 - Fichaje de empleados (registro horario) con solicitud de vacaciones/días libres y aprobación.
 - Revisar y probar a fondo las políticas RLS de `supabase/schema.sql` antes de producción.

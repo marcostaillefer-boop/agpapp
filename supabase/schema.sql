@@ -129,6 +129,44 @@ create table if not exists circulares_destinatarios (
   unique (circular_id, vivienda_id)
 );
 
+-- Tareas rutinarias de mantenimiento de una comunidad: jardinería, limpieza de
+-- piscina, revisión de ascensores, control de plagas... Puede hacerlas
+-- personal propio (un empleado con permiso sobre el módulo 'mantenimiento') o
+-- una empresa externa del directorio de proveedores.
+create table if not exists tareas_mantenimiento (
+  id uuid primary key default gen_random_uuid(),
+  comunidad_id uuid not null references comunidades (id) on delete cascade,
+  titulo text not null,
+  categoria text not null,
+  descripcion text,
+  tipo_ejecutor text not null check (tipo_ejecutor in ('personal', 'externa')),
+  asignado_a uuid references profiles (id),
+  proveedor_id uuid references proveedores (id),
+  frecuencia text not null check (
+    frecuencia in ('puntual', 'semanal', 'quincenal', 'mensual', 'trimestral', 'semestral', 'anual')
+  ),
+  activa boolean not null default true,
+  creado_por uuid not null references profiles (id),
+  created_at timestamptz not null default now(),
+  constraint tarea_ejecutor_coherente check (
+    (tipo_ejecutor = 'personal' and proveedor_id is null)
+    or (tipo_ejecutor = 'externa' and asignado_a is null)
+  )
+);
+
+-- Cada fila es una marca del checklist: una ocasión concreta (con su fecha
+-- prevista) en la que esa tarea rutinaria debe hacerse o se ha hecho.
+create table if not exists tareas_mantenimiento_registros (
+  id uuid primary key default gen_random_uuid(),
+  tarea_id uuid not null references tareas_mantenimiento (id) on delete cascade,
+  fecha_prevista date not null,
+  estado text not null default 'pendiente' check (estado in ('pendiente', 'completada')),
+  fecha_completada date,
+  completado_por uuid references profiles (id),
+  notas text,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists cuotas (
   id uuid primary key default gen_random_uuid(),
   comunidad_id uuid not null references comunidades (id) on delete cascade,
@@ -311,6 +349,11 @@ returns uuid language sql stable security definer as $$
   select comunidad_id from viviendas where id = vid;
 $$;
 
+create or replace function comunidad_de_tarea(tid uuid)
+returns uuid language sql stable security definer as $$
+  select comunidad_id from tareas_mantenimiento where id = tid;
+$$;
+
 create or replace function circular_es_para_mi(cid uuid)
 returns boolean language sql stable security definer as $$
   select exists (
@@ -454,6 +497,8 @@ alter table votos enable row level security;
 alter table codigos_acceso enable row level security;
 alter table circulares enable row level security;
 alter table circulares_destinatarios enable row level security;
+alter table tareas_mantenimiento enable row level security;
+alter table tareas_mantenimiento_registros enable row level security;
 
 -- profiles
 create policy "ver mi perfil o el de mi comunidad/despacho" on profiles for select
@@ -605,6 +650,20 @@ create policy "ver destinatarios de circulares que administro" on circulares_des
   using (exists (select 1 from circulares c where c.id = circular_id and es_personal_comunidad(c.comunidad_id)));
 create policy "asignar destinatarios con permiso" on circulares_destinatarios for insert
   with check (exists (select 1 from circulares c where c.id = circular_id and puede_editar(c.comunidad_id, 'comunidades')));
+
+-- tareas_mantenimiento
+create policy "ver tareas de mantenimiento de mi comunidad" on tareas_mantenimiento for select
+  using (es_visible_comunidad(comunidad_id));
+create policy "gestionar tareas de mantenimiento con permiso" on tareas_mantenimiento for all
+  using (puede_editar(comunidad_id, 'mantenimiento'))
+  with check (puede_editar(comunidad_id, 'mantenimiento'));
+
+-- tareas_mantenimiento_registros
+create policy "ver registros de tareas de mi comunidad" on tareas_mantenimiento_registros for select
+  using (es_visible_comunidad(comunidad_de_tarea(tarea_id)));
+create policy "gestionar registros de tareas con permiso" on tareas_mantenimiento_registros for all
+  using (puede_editar(comunidad_de_tarea(tarea_id), 'mantenimiento'))
+  with check (puede_editar(comunidad_de_tarea(tarea_id), 'mantenimiento'));
 
 -- ============================================================
 -- STORAGE: bucket de documentos

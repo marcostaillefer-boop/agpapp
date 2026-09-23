@@ -15,13 +15,14 @@ import { generarCodigo } from '@/lib/codes';
 import { supabase } from '@/lib/supabase';
 import type { Empleado, Modulo, NivelPermiso, Profile } from '@/types/database';
 
-const MODULOS: Modulo[] = ['comunidades', 'incidencias', 'cuotas', 'documentos', 'juntas'];
+const MODULOS: Modulo[] = ['comunidades', 'incidencias', 'cuotas', 'documentos', 'juntas', 'mantenimiento'];
 const MODULO_LABEL: Record<Modulo, string> = {
   comunidades: 'Comunidades',
   incidencias: 'Incidencias',
   cuotas: 'Cuotas',
   documentos: 'Documentos',
   juntas: 'Juntas',
+  mantenimiento: 'Mantenimiento',
 };
 const SIGUIENTE_NIVEL: Record<NivelPermiso, NivelPermiso> = {
   ninguno: 'ver',
@@ -109,6 +110,7 @@ export default function Equipo() {
       cuotas: 'ver',
       documentos: 'ver',
       juntas: 'ver',
+      mantenimiento: 'ninguno',
     };
     const { error } = await supabase.from('codigos_acceso').insert({
       codigo,

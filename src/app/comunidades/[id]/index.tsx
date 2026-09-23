@@ -165,6 +165,10 @@ export default function ComunidadDetalle() {
           <AppText variant="subtitle">Circulares</AppText>
           <AppText secondary>Avisos a propietarios</AppText>
         </Card>
+        <Card style={{ flexGrow: 1 }} onPress={() => router.push(`/comunidades/${id}/mantenimiento`)}>
+          <AppText variant="subtitle">Mantenimiento</AppText>
+          <AppText secondary>Tareas y su estado</AppText>
+        </Card>
       </View>
 
       <View style={{ gap: Spacing.sm }}>

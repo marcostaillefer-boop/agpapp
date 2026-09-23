@@ -1,6 +1,6 @@
 export type Rol = 'super_admin' | 'empleado' | 'propietario';
 
-export type Modulo = 'comunidades' | 'incidencias' | 'cuotas' | 'documentos' | 'juntas';
+export type Modulo = 'comunidades' | 'incidencias' | 'cuotas' | 'documentos' | 'juntas' | 'mantenimiento';
 export type NivelPermiso = 'ninguno' | 'ver' | 'editar';
 export type Permisos = Partial<Record<Modulo, NivelPermiso>>;
 
@@ -14,6 +14,9 @@ export type EstadoPunto = 'pendiente' | 'en_votacion' | 'cerrado';
 export type ModalidadAsistencia = 'presencial' | 'online';
 export type OpcionVoto = 'a_favor' | 'en_contra' | 'abstencion';
 export type CargoDirectivo = 'presidente' | 'vicepresidente' | 'secretario' | 'vocal';
+export type TipoEjecutor = 'personal' | 'externa';
+export type FrecuenciaTarea = 'puntual' | 'semanal' | 'quincenal' | 'mensual' | 'trimestral' | 'semestral' | 'anual';
+export type EstadoRegistroTarea = 'pendiente' | 'completada';
 
 export type ResultadoPunto = {
   votos_emitidos: number;
@@ -193,6 +196,32 @@ export type CircularDestinatario = {
   vivienda_id: string;
 };
 
+export type TareaMantenimiento = {
+  id: string;
+  comunidad_id: string;
+  titulo: string;
+  categoria: string;
+  descripcion: string | null;
+  tipo_ejecutor: TipoEjecutor;
+  asignado_a: string | null;
+  proveedor_id: string | null;
+  frecuencia: FrecuenciaTarea;
+  activa: boolean;
+  creado_por: string;
+  created_at: string;
+};
+
+export type RegistroTarea = {
+  id: string;
+  tarea_id: string;
+  fecha_prevista: string;
+  estado: EstadoRegistroTarea;
+  fecha_completada: string | null;
+  completado_por: string | null;
+  notas: string | null;
+  created_at: string;
+};
+
 export type CodigoAcceso = {
   id: string;
   codigo: string;
@@ -232,6 +261,8 @@ export type Database = {
       proveedores: TableDef<Proveedor>;
       circulares: TableDef<Circular>;
       circulares_destinatarios: TableDef<CircularDestinatario>;
+      tareas_mantenimiento: TableDef<TareaMantenimiento>;
+      tareas_mantenimiento_registros: TableDef<RegistroTarea>;
     };
     Views: Record<string, never>;
     Functions: {
